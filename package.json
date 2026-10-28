@@ -1,0 +1,59 @@
+{
+  "name": "dsh-xdpool-whale",
+  "version": "0.1.0",
+  "description": "小鲸鱼挂件：把 dsh-xdpool 的积分/签到/账号/今日收益渲染成 DSH Web GUI 右下角的可拖动鲸鱼浮标。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "xdpool",
+    "widget"
+  ],
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "assets/whale.png"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs && node test/register-contract.mjs",
+    "embed": "node scripts/embed-asset.mjs",
+    "install-plugin": "node scripts/install.mjs"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-modules"
+      ],
+      "platform": "web"
+    }
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  }
+}

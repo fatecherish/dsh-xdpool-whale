@@ -1,0 +1,10 @@
+# 小鲸鱼挂件（dsh-xdpool-whale）的插件注册
+#
+# DSH 通过 package.json 的 dsh.bundle.patch 找到本文件，再把这里的行合进 profile
+# 的插件清单。id 必须与 profile cordis.patch.yml 里 insert 的 id 一致。
+#
+# 注意：本文件只是「插件自己声明的默认配置」，实际是否启用由 profile 决定。
+
+- insert:
+    - id: xdpool-whale
+      name: dsh-xdpool-whale

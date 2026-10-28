@@ -1,0 +1,20 @@
+# 依赖
+node_modules/
+
+# 日志与临时文件
+*.log
+*.tmp
+*.bak
+*.bak-*
+
+# 素材原图（体积大，且已内联进 client.js，无需入库）
+assets/originals/
+
+# 安装守卫的本地环境快照（因机器而异，不入库）
+.install-guard/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
