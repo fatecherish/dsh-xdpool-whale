@@ -25,10 +25,11 @@
     "lib/client.js",
     "cordis.patch.yml",
     "README.md",
-    "assets/whale.png"
+    "LICENSE"
   ],
   "scripts": {
-    "test": "node test/smoke.mjs && node test/register-contract.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "manifest": "node test/manifest.mjs",
     "embed": "node scripts/embed-asset.mjs",
     "install-plugin": "node scripts/install.mjs"
   },

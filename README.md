@@ -1,9 +1,26 @@
 # dsh-xdpool-whale · 小鲸鱼挂件
 
+[![tests](https://github.com/fatecherish/dsh-xdpool-whale/actions/workflows/tests.yml/badge.svg)](https://github.com/fatecherish/dsh-xdpool-whale/actions/workflows/tests.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](https://nodejs.org/)
+[![dsh](https://img.shields.io/badge/dsh-plugin-8b5cf6.svg)](https://github.com/deepseek-ai)
+
 把 **dsh-xdpool** 的积分与用量数据渲染成 DSH Web GUI 右下角的一只可拖动鲸鱼浮标：
 点一下展开面板看总积分、今日收益、签到状态、权益包到期、自动化任务健康度，
 以及**调用次数 / token 用量 / 模型厂商分布 / 逐日明细**；
 拖一下可以换位置；位置、尺寸和开合状态都记在浏览器本地。
+
+> **前置条件**：已安装并启用 [`dsh-xdpool`](https://www.npmjs.com/package/dsh-xdpool)。
+> 本插件只读取它暴露的 `/plugins/dsh-xdpool/status` 与 `/usage`，不代理、不篡改任何账号数据。
+
+```bash
+git clone https://github.com/fatecherish/dsh-xdpool-whale.git
+cd dsh-xdpool-whale
+node scripts/install.mjs                       # 预览：只打印将要改什么
+node scripts/install.mjs --apply --install     # 实际安装
+```
+
+详细步骤与卸载方式见下文「[安装](#安装)」。
 
 外观参照 [DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)
 的「白色对话气泡 + 鲸鱼立绘」形态，但数据全部换成 xdpool 的积分口径，
@@ -285,13 +302,30 @@ node scripts/install.mjs --rollback           # 从最近一次备份还原
 ## 开发与自测
 
 ```bash
-node test/smoke.mjs              # 在 vm 里加载 client bundle，校验接口/字典/样式与数据口径
-node test/register-contract.mjs  # 按 SlotCore 真实规则校验注册调用不会拖垮宿主
-node test/render-regression.mjs  # 渲染层回归：文案缺失不崩、面板不溢出、定位不 NaN
-node test/render-snapshot.mjs    # 渲染树快照：结构/文案/尺寸/默认收起态逐项核对
-node test/dict-parity.mjs        # zh/en 词典键必须一一对应（漏一条就会在英文界面露裸 key）
-node test/usage-blocks.mjs       # 用量区块：厂商归一、聚合口径、占比与空数据兜底
+npm test                      # 跑全部测试（推荐）
+node scripts/run-tests.mjs    # 同上；--bail 遇错即停
+node test/manifest.mjs        # 只校验 package.json 清单完整性
 ```
+
+`scripts/run-tests.mjs` 按固定顺序执行下面的用例，最后打印汇总表；
+一旦有失败就以退出码 1 结束，可直接用于 CI。
+
+| 用例 | 校验内容 |
+|---|---|
+| `manifest` | `dsh.manifestVersion` / `dsh.bundle.patch` / `main` / `files` 白名单 / `client.inject` 齐全且路径存在 |
+| `smoke` | 在 vm 里加载 client bundle，校验接口/字典/样式与数据口径 |
+| `register-contract` | 按 `SlotCore` 真实规则校验注册调用不会拖垮宿主 |
+| `render-regression` | 渲染层回归：文案缺失不崩、面板不溢出、定位不 NaN |
+| `render-snapshot` | 渲染树快照：结构/文案/尺寸/默认收起态逐项核对 |
+| `dict-parity` | zh/en 词典键必须一一对应（漏一条就会在英文界面露裸 key） |
+| `usage-blocks` | 用量区块：厂商归一、聚合口径、占比与空数据兜底 |
+| `vendor-mapping` | 渠道 id → 显示名映射（含 `buddy` 国内版 / `workbuddy` 国际版不串台） |
+
+### 持续集成
+
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) 在每次 push / PR 到 `main` 时
+跑 **Ubuntu 与 Windows × Node 20 与 22** 四个组合，全部通过才显示绿色徽章。
+本地 `npm test` 与 CI 跑的是同一份用例，不存在「本地过、CI 挂」的分叉。
 
 `usage-blocks.mjs` 会把 `vendorOf` / `normalizeUsage` 从 bundle 里抠出来跑纯函数断言，
 锁住三个容易错的口径：token 总数必须是 `input + output`（reasoning 已含在 output 内）、
@@ -367,19 +401,27 @@ node scripts/embed-media.mjs                # 4) 内联音效与第二套立绘
 ## 目录
 
 ```
-package.json               dsh.bundle.patch / dsh.client / platform 声明
-cordis.patch.yml           插件自己的注册行（由 dsh.bundle.patch 指向）
-lib/index.js               Host 半侧（inject: []，仅日志，无副作用）
-lib/client.js              浏览器半侧（气泡 + 面板 + 轮询 + 归一化，立绘已内联）
-assets/whale.png           鲸鱼立绘源图（内联进 client.js 的那一张）
-scripts/install.mjs        写 profile 的安装器（dry-run 默认、自动备份、幂等、可回滚）
-scripts/embed-asset.mjs    把 assets/whale.png 内联进 lib/client.js（--check 校验指纹）
-test/smoke.mjs             无依赖冒烟测试
-test/register-contract.mjs 挂件注册契约测试
-test/render-regression.mjs 渲染层回归测试（文案缺失 / 布局溢出 / NaN 定位）
-test/render-snapshot.mjs   渲染树快照测试（结构 / 文案 / 尺寸 / 收起态）
-test/dict-parity.mjs       zh/en 词典键一致性
-test/usage-blocks.mjs      用量区块：厂商归一与聚合口径
+.github/workflows/tests.yml  CI：Ubuntu/Windows × Node 20/22 跑全部测试
+package.json                 dsh.bundle.patch / dsh.client / platform 声明
+cordis.patch.yml             插件自己的注册行（由 dsh.bundle.patch 指向）
+lib/index.js                 Host 半侧（inject: []，仅日志，无副作用）
+lib/client.js                浏览器半侧（气泡 + 面板 + 轮询 + 归一化，立绘已内联）
+assets/                      素材源文件（已全部内联，运行时不再读取）
+scripts/install.mjs          写 profile 的安装器（dry-run 默认、自动备份、幂等、可回滚）
+scripts/run-tests.mjs        跨平台测试执行器（npm test 的背后）
+scripts/embed-asset.mjs      把 assets/whale.png 内联进 lib/client.js（--check 校验指纹）
+scripts/embed-media.mjs      把音效/动图内联进 lib/client.js（--check 校验指纹）
+scripts/optimize-png.mjs     立绘重采样与量化（幂等，从 assets/originals/ 读）
+docs/ARCHITECTURE.md         架构与实现细节
+docs/XDPOOL-NOTES.md         dsh-xdpool 的坑与排查记录
+test/manifest.mjs            插件清单完整性
+test/smoke.mjs               无依赖冒烟测试
+test/register-contract.mjs   挂件注册契约测试
+test/render-regression.mjs   渲染层回归测试（文案缺失 / 布局溢出 / NaN 定位）
+test/render-snapshot.mjs     渲染树快照测试（结构 / 文案 / 尺寸 / 收起态）
+test/dict-parity.mjs         zh/en 词典键一致性
+test/usage-blocks.mjs        用量区块：厂商归一与聚合口径
+test/vendor-mapping.mjs      渠道 id → 显示名映射
 ```
 
 ## 授权说明
