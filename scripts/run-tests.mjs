@@ -15,6 +15,8 @@ const ORDER = [
   'smoke',
   'register-contract',
   'dict-parity',
+  'assets-sync',
+  'skin-parity',
   'render-regression',
   'render-snapshot',
   'usage-blocks',

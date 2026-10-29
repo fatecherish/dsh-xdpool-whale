@@ -173,6 +173,80 @@ console.log('=== 默认状态（气泡收起）===')
 }
 
 console.log('')
+console.log('=== art2 皮肤（思考鲸鱼，纯立绘）===')
+{
+  // art2 的源图 DSniang02.png 原本是「白气泡 + 人物」的整图，
+  // 已由 scripts/crop-art2.py 抠掉气泡、裁成和 whale.png 同规格的纯立绘。
+  // 所以两套皮肤必须**走同一套布局**：不能有按皮肤区分的 CSS 分支，
+  // 否则又会回到「两层气泡叠在一起、人物只剩一截」那个 bug。
+  const store = new Map([['dsh-xdpool-whale:skin', 'art2']])
+  const { mod } = await load({ store })
+  const tree = mod.WhaleWidget({ t: undefined })
+  const nodes = walk(tree)
+  const byCls = (c) => nodes.filter((n) => n.cls === c)
+
+  check(byCls('xdw-whale').length === 1, 'art2 只渲染一张立绘（不多不少）')
+  // WhaleImage 是组件节点，walk 只展开到组件外层（src 由组件自己渲染时加上），
+  // 这里核对传进去的 suit prop。
+  const whale = byCls('xdw-whale')[0]
+  check(whale && whale.props.suit === 'art2', 'WhaleImage 收到 suit=art2', whale && whale.props.suit)
+  // 立绘靠 SVG 气泡承载文字，两套皮肤都必须保留。
+  check(nodes.some((n) => n.tag === 'BubbleSvg'), 'art2 保留 SVG 气泡（不再靠图里自带的气泡）')
+  check(byCls('xdw-label').length === 1, 'art2 仍有积分标题')
+  check(byCls('xdw-amount').length === 1, 'art2 仍有积分数字')
+
+  // 关键回归点：根节点不能再出现按皮肤区分的开关属性。
+  // （`data-suit` 只允许出现在 img 自身当诊断标记，绝不能挂到根节点去驱动 CSS 分支。）
+  check(
+    tree.props['data-suit'] === undefined,
+    'art2 不在根节点打 data-suit（两套皮肤共用布局）',
+    tree.props['data-suit'],
+  )
+
+  const texts = nodes.filter((n) => n.kind === 'text').map((n) => n.text)
+  const bad = texts.filter((s) => /undefined|null|NaN|\[object/.test(s))
+  check(bad.length === 0, 'art2 文本无 undefined/null/NaN', JSON.stringify(bad.slice(0, 5)))
+}
+
+console.log('')
+console.log('=== 默认皮肤是 whale ===')
+{
+  const { mod } = await load()
+  const tree = mod.WhaleWidget({ t: undefined })
+  const nodes = walk(tree)
+  const byCls = (c) => nodes.filter((n) => n.cls === c)
+  check(nodes.some((n) => n.tag === 'BubbleSvg'), 'whale 皮肤保留 SVG 气泡')
+  check(byCls('xdw-whale')[0].props.suit === 'whale', 'WhaleImage 收到 suit=whale')
+}
+
+console.log('')
+console.log('=== 两套立绘素材同规格 ===')
+{
+  // 两套皮肤共用 `.xdw-whale` 定位（right:3%; bottom:-14%; width:56%），
+  // 前提是素材同为「方形 + 透明底 + 人物贴底居中」。这里直接读源图核对，
+  // 避免以后换了图却没同步布局假设。
+  const { readFile } = await import('node:fs/promises')
+  const { fileURLToPath } = await import('node:url')
+  const { dirname, join } = await import('node:path')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+  const readPngSize = (buf) => ({
+    width: buf.readUInt32BE(16),
+    height: buf.readUInt32BE(20),
+  })
+
+  for (const file of ['whale.png', 'DSniang03.png']) {
+    const buf = await readFile(join(root, 'assets', file))
+    const { width, height } = readPngSize(buf)
+    check(
+      width === 512 && height === 512,
+      `${file} 是 512x512 方形画布`,
+      `${width}x${height}`,
+    )
+  }
+}
+
+console.log('')
 console.log('=== 展开状态（面板，空账号）===')
 {
   const store = new Map([['dsh-xdpool-whale:open', '1']])

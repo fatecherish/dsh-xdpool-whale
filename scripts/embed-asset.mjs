@@ -1,11 +1,18 @@
-// 把 assets/whale.png 内联进 lib/client.js 的 WHALE_DATA_URI 常量。
+// 把立绘 PNG 内联进 lib/client.js 的 data URI 常量。
 //
 // 为什么必须内联：DSH 宿主只允许插件通过 `/plugins/<id>/client.<name>.js` 提供
 // 客户端 chunk（CLIENT_CHUNK 正则只放行 js/map），图片之类的外部静态文件没有路由，
 // 而 client bundle 的 require 也只认宿主模块，不能按相对路径 require 本地文件。
 //
+// 两套皮肤各对应一张图，区块结构相同，只是常量名不同：
+//   assets/whale.png    → WHALE_DATA_URI      （经典鲸鱼，已抠图的纯立绘）
+//   assets/DSniang03.png → WHALE_ART2_DATA_URI（思考鲸鱼，从整图裁出的纯立绘）
+//   assets/skin-chibi-side.png  → SKIN_CHIBI_SIDE_DATA_URI   （Q 版全身侧面）
+//   assets/skin-chibi-front.png → SKIN_CHIBI_FRONT_DATA_URI  （Q 版正面）
+//   assets/skin-fullbody.png    → SKIN_FULLBODY_DATA_URI     （全身立绘）
+//
 // 用法：node scripts/embed-asset.mjs [--check]
-//   --check  只校验当前内联值与 assets/whale.png 是否一致，不写文件
+//   --check  只校验当前内联值与源图是否一致，不写文件
 import { readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { dirname, join } from 'node:path'
@@ -13,60 +20,142 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, '..')
-const pngPath = join(root, 'assets', 'whale.png')
 const clientPath = join(root, 'lib', 'client.js')
 
-const MARK_BEGIN = '//#region whale-asset'
-const MARK_END = '//#endregion whale-asset'
+/**
+ * 每套皮肤的源图 → 内联常量。
+ *
+ * `region` 是 lib/client.js 里的哨兵注释名，`constName` 是生成的常量名，
+ * `label` 只用于注释里的说明文字。
+ */
+const TARGETS = [
+  {
+    region: 'whale-asset',
+    file: 'whale.png',
+    constName: 'WHALE_DATA_URI',
+    label: '鲸鱼立绘（经典，纯立绘）',
+  },
+  {
+    region: 'whale-art2-asset',
+    file: 'DSniang03.png',
+    constName: 'WHALE_ART2_DATA_URI',
+    label: '鲸鱼立绘（思考鲸鱼，从整图裁出的纯立绘）',
+  },
+  {
+    region: 'skin-chibi-side-asset',
+    file: 'skin-chibi-side.png',
+    constName: 'SKIN_CHIBI_SIDE_DATA_URI',
+    label: 'Q 版全身侧面（0.55 竖版）',
+  },
+  {
+    region: 'skin-chibi-front-asset',
+    file: 'skin-chibi-front.png',
+    constName: 'SKIN_CHIBI_FRONT_DATA_URI',
+    label: 'Q 版正面（0.90 偏方）',
+  },
+  {
+    region: 'skin-fullbody-asset',
+    file: 'skin-fullbody.png',
+    constName: 'SKIN_FULLBODY_DATA_URI',
+    label: '全身立绘（0.55 竖版）',
+  },
+]
 
 const check = process.argv.includes('--check')
 
-const png = await readFile(pngPath)
-const hash = createHash('sha256').update(png).digest('hex').slice(0, 16)
-const uri = `data:image/png;base64,${png.toString('base64')}`
-
-const raw = await readFile(clientPath, 'utf8')
+let raw = await readFile(clientPath, 'utf8')
 const eol = raw.includes('\r\n') ? '\r\n' : '\n'
 
-const block = [
-  MARK_BEGIN,
-  `\t\t/** 鲸鱼立绘（内联 data URI，源文件 assets/whale.png，sha256:${hash}）。 */`,
-  `\t\tconst WHALE_DATA_URI = "${uri}";`,
-  MARK_END,
-].join(eol)
+/** 生成某个目标对应的哨兵区块文本。 */
+function buildBlock(target, uri, hash, bytes) {
+  return [
+    `//#region ${target.region}`,
+    `\t\t/** ${target.label}（内联 data URI，源文件 assets/${target.file}，sha256:${hash}，${bytes} 字节）。 */`,
+    `\t\tconst ${target.constName} = "${uri}";`,
+    `//#endregion ${target.region}`,
+  ].join(eol)
+}
 
-const beginIdx = raw.indexOf(MARK_BEGIN)
-const endIdx = raw.indexOf(MARK_END)
+let failures = 0
+let changed = false
+
+for (const target of TARGETS) {
+  const pngPath = join(root, 'assets', target.file)
+  const beginMark = `//#region ${target.region}`
+  const endMark = `//#endregion ${target.region}`
+
+  let png
+  try {
+    png = await readFile(pngPath)
+  } catch {
+    console.error(`MISSING: 找不到源图 assets/${target.file}`)
+    failures++
+    continue
+  }
+
+  const hash = createHash('sha256').update(png).digest('hex').slice(0, 16)
+  const uri = `data:image/png;base64,${png.toString('base64')}`
+
+  const beginIdx = raw.indexOf(beginMark)
+  const endIdx = raw.indexOf(endMark)
+
+  if (check) {
+    if (beginIdx < 0 || endIdx < 0) {
+      console.error(`MISSING: lib/client.js 里没有 ${target.region} 区块`)
+      failures++
+      continue
+    }
+    const current = raw.slice(beginIdx, endIdx + endMark.length)
+    const m = /sha256:([0-9a-f]{16})/.exec(current)
+    if (m === null || m[1] !== hash) {
+      console.error(
+        `STALE: ${target.constName} 与 assets/${target.file} 不一致（内联=${m ? m[1] : '无'}，当前=${hash}）`,
+      )
+      failures++
+      continue
+    }
+    console.log(
+      `  OK   ${target.constName.padEnd(20)} ← assets/${target.file.padEnd(16)} sha256:${hash}  ${png.length} 字节`,
+    )
+    continue
+  }
+
+  const block = buildBlock(target, uri, hash, png.length)
+
+  if (beginIdx >= 0 && endIdx > beginIdx) {
+    raw = raw.slice(0, beginIdx) + block + raw.slice(endIdx + endMark.length)
+  } else {
+    // 首次注入：放在 constants 区域开头
+    const anchor = '//#region constants' + eol
+    const at = raw.indexOf(anchor)
+    if (at < 0) {
+      console.error('找不到 //#region constants 锚点，放弃注入')
+      process.exit(1)
+    }
+    const insertAt = at + anchor.length
+    const before = raw.slice(0, insertAt)
+    const after = raw.slice(insertAt)
+    // 两个区块都在时用空行隔开，便于阅读
+    raw = before + (before.endsWith(eol + eol) ? '' : eol) + block + eol + eol + after
+  }
+  changed = true
+  console.log(
+    `  OK   ${target.constName.padEnd(20)} ← assets/${target.file.padEnd(16)} sha256:${hash}  ${png.length} 字节 → ${uri.length} 字符`,
+  )
+}
 
 if (check) {
-  if (beginIdx < 0) {
-    console.error('MISSING: lib/client.js 里没有 whale-asset 区块')
+  if (failures > 0) {
+    console.error(`\n${failures} 项校验失败：请运行 node scripts/embed-asset.mjs 重新内联`)
     process.exit(1)
   }
-  const current = raw.slice(beginIdx, endIdx + MARK_END.length)
-  const m = /sha256:([0-9a-f]{16})/.exec(current)
-  if (m === null || m[1] !== hash) {
-    console.error(`STALE: 内联图与 assets/whale.png 不一致（内联=${m ? m[1] : '无'}，当前=${hash}）`)
-    process.exit(1)
-  }
-  console.log(`OK: 内联图与 assets/whale.png 一致（sha256:${hash}，${png.length} 字节）`)
+  console.log('\nOK: 内联图与 assets/ 下的源图全部一致')
   process.exit(0)
 }
 
-let out
-if (beginIdx >= 0 && endIdx > beginIdx) {
-  out = raw.slice(0, beginIdx) + block + raw.slice(endIdx + MARK_END.length)
+if (changed) {
+  await writeFile(clientPath, raw, 'utf8')
+  console.log('\n已写入 lib/client.js')
 } else {
-  // 首次注入：放在 constants 区域开头
-  const anchor = '//#region constants' + eol
-  const at = raw.indexOf(anchor)
-  if (at < 0) {
-    console.error('找不到 //#region constants 锚点，放弃注入')
-    process.exit(1)
-  }
-  const insertAt = at + anchor.length
-  out = raw.slice(0, insertAt) + block + eol + eol + raw.slice(insertAt)
+  console.log('\n没有可写入的变更')
 }
-
-await writeFile(clientPath, out, 'utf8')
-console.log(`已写入 lib/client.js（sha256:${hash}，${png.length} 字节 → ${uri.length} 字符）`)

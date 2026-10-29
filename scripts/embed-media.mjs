@@ -16,16 +16,16 @@ const CLIENT = join(ROOT, 'lib', 'client.js')
 const ASSETS = join(ROOT, 'assets')
 
 /** 要内联的媒体。key 是 client.js 里 ASSETS 表的键名。 */
-// 只保留真正会播放的 4 个音效 + 第二套立绘。
+// 只保留真正会播放的 3 个音效。
 // hover(D1) 与 exp(minecraft-exp-orb.wav, 59 KB) 原本只在 warmSounds() 里预热、
 // 从来没有被 playSound() 调用，属于纯体积开销，已从表里移除。
 // rua.gif（摸头动图）按用户要求不再使用，也已移除。
+// art2 立绘已改由 scripts/embed-asset.mjs 单独内联成 WHALE_ART2_DATA_URI
+// （与 whale.png 同规格的纯立绘），不再走这张媒体表。
 const MEDIA = [
   { key: 'press', file: 'Ya1.mp3', mime: 'audio/mpeg' },
   { key: 'release', file: 'Ya2.mp3', mime: 'audio/mpeg' },
   { key: 'click', file: 'D2.mp3', mime: 'audio/mpeg' },
-  // rua.gif（摸头动图）已按要求移除，不再内联：省 300KB 以上的 bundle 体积。
-  { key: 'art2', file: 'DSniang02.png', mime: 'image/png' },
 ]
 
 const BEGIN = '/* @media-begin */'

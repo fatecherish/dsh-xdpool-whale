@@ -285,6 +285,37 @@ node scripts/install.mjs --rollback           # 从最近一次备份还原
   `--check` 可校验是否与源图一致）。
 - **立绘解码失败要有兜底。** 若 `img` 触发 `onError`（例如安全策略拦掉 `data:`），
   组件切到内联的官方矢量鲸鱼，避免挂件只剩一个空气泡。
+- **「整图皮肤」不能当「立绘」塞进去 —— 那就先把它裁成纯立绘。** 换装的两套原始素材
+  **不是同一种东西**：
+
+  | 皮肤 | 原始素材 | 处理 |
+  |---|---|---|
+  | `whale` | `whale.png`：已抠图的纯立绘，透明底 | 直接用 |
+  | `art2` | `DSniang02.png`：**整张构图**，自带白色思考气泡 + 两个虚线小泡泡 + 人物 | 用 `scripts/crop-art2.py` 抠掉气泡，得到 `DSniang03.png` |
+
+  `art2` 最早也只是换 `src`、仍走立绘分支，于是图里自带的白气泡和 SVG 气泡叠成两层，
+  人物被挤到右下角只剩一截，`mask-image` 还把底部又切掉一段。
+  **修法不是给整图加一套独立布局**（那要按皮肤分叉 CSS、把文字塞进图里的气泡、
+  还得以像素级量出气泡中心），而是**把素材本身修正成和 `whale` 同规格**：
+
+  ```
+  两张立绘统一为：512×512、透明底、人物贴底居中
+  → 两套皮肤共用同一套 .xdw-whale 定位（right:3%; bottom:-14%; width:56%）
+  → 零皮肤专属 CSS，根节点也不需要 data-suit 之类的开关属性
+  ```
+
+  裁切规则（`scripts/crop-art2.py`，对 1026×1026 源图逐像素扫描得出，不是手调的）：
+  `y < 514` 全是气泡主体，整段清空；`y >= 514` 有 3 个不透明连通块，
+  最大那个（约 236k 像素）是人物留下，另外两个（约 5.4k / 2.8k 像素）是虚线小泡泡清掉。
+  脚本支持 `--check`，`assets-sync.mjs` 会跑它。
+
+  > 一般规律：**美术素材的规格是一份契约**。当一张图用不对时，先问「它是不是根本不是
+  > 这个用途的图」——把素材修正成统一规格，往往比给特例加一套布局分支成本更低、
+  > 也更不容易在后续改动里回归。
+- **手工改源图后必须重跑内联脚本，否则 bundle 里还是旧图。** 立绘走 `scripts/embed-asset.mjs`
+  （`WHALE_DATA_URI` / `WHALE_ART2_DATA_URI`），音效走 `scripts/embed-media.mjs`（`ASSETS.*`）。
+  两个都支持 `--check`，`test/assets-sync.mjs` 负责在测试里跑它们——静态检查看不出
+  「base64 是旧的」这种问题，因为 bundle 语法完全合法，只是显示的是上一版图片。
 - **气泡用一条闭合路径画**（`BUBBLE_BIG_D`），而不是几个独立椭圆拼：
   尾巴必须和主体融为一体，分开画会在连接处露出描边断口。
 - **`max-height` 必须配 `box-sizing: border-box`。** 面板原来是 content-box +
@@ -345,6 +376,13 @@ locale 服务缺失 / 槽位类型变化」四种宿主形态，确认 `apply()`
 根节点 `.xdw-root`、气泡主体 `.xdw-body`、命中区 `.xdw-hit`、`BubbleSvg`、`Whale` 都渲染出来；
 所有文本不含 `undefined`/`NaN`/`[object Object]`；定位是有限像素值且盒子不越界；
 默认不展开面板；`aria-label` 是非空字符串且与 `title` 一致。
+换装另外跑两轮：`skin=art2` 时只渲染一张立绘、保留 SVG 气泡、文字块仍在，
+且根节点**不能**出现 `data-suit` 这类按皮肤区分的开关属性（两套皮肤共用一套布局）；
+未设置时默认是 `whale`。最后核对两张立绘源图都是 512×512 方形画布。
+
+`assets-sync.mjs` 跑 `embed-asset.mjs --check` 与 `embed-media.mjs --check`，
+确保 bundle 里的立绘与音效和 `assets/` 下的源文件同步——手工改图后忘了重跑内联脚本时，
+bundle 语法依然合法、只是显示旧图，静态检查抓不到。
 
 > ⚠️ 这类问题**在纯单元测试里看不出来**。真正定位它们靠的是用 Chrome DevTools Protocol
 > 打开真实 GUI，抓 `Runtime.consoleAPICalled` 与 `document.querySelector('.xdw-root')`。
@@ -367,8 +405,9 @@ locale 服务缺失 / 槽位类型变化」四种宿主形态，确认 `apply()`
 ```bash
 powershell -File scripts/optimize-art.ps1   # 1) 缩放立绘并导出 raw RGBA 到 assets/.work
 node scripts/optimize-png.mjs               # 2) 用最优行过滤 + zlib -9 重新编码 PNG
-node scripts/embed-asset.mjs                # 3) 内联 whale.png
-node scripts/embed-media.mjs                # 4) 内联音效与第二套立绘
+python scripts/crop-art2.py                 # 3) 从 DSniang02.png 裁出纯立绘 DSniang03.png
+node scripts/embed-asset.mjs                # 4) 内联两套立绘（whale.png / DSniang03.png）
+node scripts/embed-media.mjs                # 5) 内联音效
 ```
 
 结果（实测）：
@@ -376,10 +415,11 @@ node scripts/embed-media.mjs                # 4) 内联音效与第二套立绘
 | 资源 | 优化前 | 优化后 | 说明 |
 | --- | --- | --- | --- |
 | `whale.png` | 610×610, 250 KB | 512×512, 193 KB | 重编码省 71 KB |
-| `DSniang02.png` | 1026×1026, 456 KB | 512×512, 134 KB | 缩放 + 重编码省 322 KB |
+| `DSniang02.png` | 1026×1026, 456 KB | — | 只作为裁切源保留在 `assets/originals/`，不再内联 |
+| `DSniang03.png` | — | 512×512, 190 KB | 由 `crop-art2.py` 裁掉气泡后得到，替换掉原来 134 KB 的整图 |
 | `minecraft-exp-orb.wav` | 59 KB | — | 从未被播放，已移除 |
 | `D1.mp3`（hover） | 3 KB | — | 从未被播放，已移除 |
-| `client.js` | 746 KB | 585 KB | 合计 −161 KB |
+| `client.js` | 746 KB | 649 KB | 含两张立绘；裁切后比保留整图时反而更小 |
 
 为什么 512px 够用：挂件立绘宽度是气泡的 56%，最大档 `SIZE_PX.lg = 244px`，
 即最大显示 244 × 0.56 ≈ 137 CSS px，3 倍屏需要 411 设备像素。取 512 留有余量，
