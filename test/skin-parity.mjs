@@ -1,12 +1,17 @@
 /**
  * 皮肤（换装）一致性测试。
  *
- * 五套皮肤的 id 散布在五个地方，任何一处漏改都会在运行时表现为：
+ * 皮肤 id 散布在几个地方，任何一处漏改都会在运行时表现为：
  *   - 菜单里多出一项点了没反应（SUIT_OPTIONS 有、SKINS 没有）
  *   - 下拉框显示原始 key 名（词典缺条）
  *   - 图片空白（SKIN_IMAGES 缺条）
  *   - 立绘位置错乱（SKIN_LAYOUT 缺条）
  * 这些都不会抛异常，只会「看起来怪」，所以用测试锁死。
+ *
+ * 换装只保留两套形象：经典鲸鱼（`whale`）与思考鲸鱼（`art2`）。
+ * 2026-10-29 起下线的三套（Q 版侧身 / Q 版正面 / 全身立绘）已从 SKINS、
+ * SKIN_IMAGES、SKIN_LAYOUT、SUIT_OPTIONS、词典与内联资源里一并移除，
+ * 测试同时锁住「不能悄悄加回来」。
  *
  * 另外校验排版参数本身合法：width / height 必须二选一，
  * 且竖图（高宽比 > 1.3）必须走 height 分支——按宽度定尺寸会顶穿气泡导致切头。
@@ -28,6 +33,9 @@ const check = (ok, label, detail) => {
     console.log(`  ${RED}FAIL${R} ${label}${detail === undefined ? '' : '  → ' + detail}`)
   }
 }
+
+/** 换装保留的两套形象。测试里写死，防止被顺手加回来。 */
+const EXPECTED_SKINS = ['whale', 'art2']
 
 // ---- 从 bundle 里把常量表抠出来（bundle 是 IIFE，不能直接 import） ----
 const source = await readFile(join(root, 'lib', 'client.js'), 'utf8')
@@ -79,9 +87,34 @@ const SKIN_IMAGES_KEYS = [...(sliceConst('SKIN_IMAGES') || '').matchAll(/^\s*(\w
 const SKIN_LAYOUT = evalLiteral(sliceConst('SKIN_LAYOUT'))
 const SUIT_OPTIONS = evalLiteral(sliceConst('SUIT_OPTIONS'))
 
-console.log('=== 五个位置必须一致 ===')
-check(Array.isArray(SKINS) && SKINS.length === 5, `SKINS 有 5 套皮肤`, `实际 ${SKINS?.length}`)
+console.log('=== 换装只保留两套形象 ===')
+check(
+  Array.isArray(SKINS) && SKINS.join(',') === EXPECTED_SKINS.join(','),
+  `SKINS 恰好是 ${EXPECTED_SKINS.join(' / ')}`,
+  `实际 ${SKINS}`,
+)
 
+// 已下线的三套不能在数据表里留任何残影，否则菜单/词典/内联图会各说各话。
+const retired = ['chibiSide', 'chibiFront', 'fullBody']
+for (const id of retired) {
+  check(!SKINS.includes(id), `下线的 ${id} 不在 SKINS`)
+  check(!SKIN_IMAGES_KEYS.includes(id), `下线的 ${id} 不在 SKIN_IMAGES`)
+  check(!(id in (SKIN_LAYOUT || {})), `下线的 ${id} 不在 SKIN_LAYOUT`)
+}
+const retiredKeys = ['suitChibiSide', 'suitChibiFront', 'suitFullBody']
+for (const key of retiredKeys) {
+  check(!new RegExp(`\\b${key}:\\s*"`).test(source), `词典里没有下线的 ${key}`)
+}
+const retiredConsts = ['SKIN_CHIBI_SIDE_DATA_URI', 'SKIN_CHIBI_FRONT_DATA_URI', 'SKIN_FULLBODY_DATA_URI']
+for (const name of retiredConsts) {
+  check(!source.includes(name), `bundle 里没有下线的 ${name}`)
+}
+const retiredFiles = ['skin-chibi-side.png', 'skin-chibi-front.png', 'skin-fullbody.png']
+for (const file of retiredFiles) {
+  check(!source.includes(file), `bundle 注释里没有下线的 ${file}`)
+}
+
+console.log('\n=== 各数据表必须一致 ===')
 const missingImages = SKINS.filter((s) => !SKIN_IMAGES_KEYS.includes(s))
 check(missingImages.length === 0, '每套皮肤都有 SKIN_IMAGES 映射', missingImages.join(', '))
 
@@ -167,7 +200,6 @@ for (const skin of SKINS) {
 function skinConstName(skin) {
   if (skin === 'whale') return 'WHALE_DATA_URI'
   if (skin === 'art2') return 'WHALE_ART2_DATA_URI'
-  if (skin === 'fullBody') return 'SKIN_FULLBODY_DATA_URI'
   return 'SKIN_' + skin.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase() + '_DATA_URI'
 }
 
@@ -194,4 +226,4 @@ if (failed > 0) {
   console.log(`${RED}失败 ${failed} 项${R}`)
   process.exit(1)
 }
-console.log(`${G}全部通过：五套皮肤的 id / 图片 / 排版 / 菜单 / 词典完全对齐${R}`)
+console.log(`${G}全部通过：两套皮肤的 id / 图片 / 排版 / 菜单 / 词典完全对齐${R}`)

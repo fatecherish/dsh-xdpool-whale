@@ -220,6 +220,25 @@ console.log('=== 默认皮肤是 whale ===')
 }
 
 console.log('')
+console.log('=== 旧的换装存档回落到经典鲸鱼 ===')
+{
+  // 换装只保留 whale / art2，但用户本地存档里可能还是已下线的 fullBody /
+  // chibiSide / chibiFront。loadSuit() 必须把这三种脏值回落到 SKINS[0]，
+  // 否则 WhaleImage 会拿到一个没有映射的 suit，立绘变成空白（或退回矢量鲸鱼）。
+  for (const stale of ['fullBody', 'chibiSide', 'chibiFront', 'nonsense']) {
+    const store = new Map([['dsh-xdpool-whale:skin', stale]])
+    const { mod } = await load({ store })
+    const nodes = walk(mod.WhaleWidget({ t: undefined }))
+    const whale = nodes.find((n) => n.cls === 'xdw-whale')
+    check(
+      whale && whale.props.suit === 'whale',
+      `存档 skin=${stale} 回落到 whale`,
+      whale && whale.props.suit,
+    )
+  }
+}
+
+console.log('')
 console.log('=== 两套立绘素材同规格 ===')
 {
   // 两套皮肤共用 `.xdw-whale` 定位（right:3%; bottom:-14%; width:56%），

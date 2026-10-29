@@ -7,9 +7,6 @@
 // 两套皮肤各对应一张图，区块结构相同，只是常量名不同：
 //   assets/whale.png    → WHALE_DATA_URI      （经典鲸鱼，已抠图的纯立绘）
 //   assets/DSniang03.png → WHALE_ART2_DATA_URI（思考鲸鱼，从整图裁出的纯立绘）
-//   assets/skin-chibi-side.png  → SKIN_CHIBI_SIDE_DATA_URI   （Q 版全身侧面）
-//   assets/skin-chibi-front.png → SKIN_CHIBI_FRONT_DATA_URI  （Q 版正面）
-//   assets/skin-fullbody.png    → SKIN_FULLBODY_DATA_URI     （全身立绘）
 //
 // 用法：node scripts/embed-asset.mjs [--check]
 //   --check  只校验当前内联值与源图是否一致，不写文件
@@ -40,24 +37,6 @@ const TARGETS = [
     file: 'DSniang03.png',
     constName: 'WHALE_ART2_DATA_URI',
     label: '鲸鱼立绘（思考鲸鱼，从整图裁出的纯立绘）',
-  },
-  {
-    region: 'skin-chibi-side-asset',
-    file: 'skin-chibi-side.png',
-    constName: 'SKIN_CHIBI_SIDE_DATA_URI',
-    label: 'Q 版全身侧面（0.55 竖版）',
-  },
-  {
-    region: 'skin-chibi-front-asset',
-    file: 'skin-chibi-front.png',
-    constName: 'SKIN_CHIBI_FRONT_DATA_URI',
-    label: 'Q 版正面（0.90 偏方）',
-  },
-  {
-    region: 'skin-fullbody-asset',
-    file: 'skin-fullbody.png',
-    constName: 'SKIN_FULLBODY_DATA_URI',
-    label: '全身立绘（0.55 竖版）',
   },
 ]
 

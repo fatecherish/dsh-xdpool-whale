@@ -285,6 +285,12 @@ node scripts/install.mjs --rollback           # 从最近一次备份还原
   `--check` 可校验是否与源图一致）。
 - **立绘解码失败要有兜底。** 若 `img` 触发 `onError`（例如安全策略拦掉 `data:`），
   组件切到内联的官方矢量鲸鱼，避免挂件只剩一个空气泡。
+- **换装只保留两套形象：经典鲸鱼与思考鲸鱼。** 「换装」下拉的选项完全由 `SKINS` /
+  `SUIT_OPTIONS` 决定，所以下线一套形象要同时清掉五处：`SKINS`、`SKIN_IMAGES`、
+  `SKIN_LAYOUT`、`SUIT_OPTIONS`（及其中英词典 key）、`lib/client.js` 里的内联图区块
+  与 `assets/` 下的源图。少清一处不会报错，只会留下「菜单点得到、图却是白框」或
+  「词典露裸 key」这类残影，因此 `test/skin-parity.mjs` 把两套的 id 写死，
+  并逐项断言下线项不在任何一个表里。上线/下线形象请连测试一起改。
 - **「整图皮肤」不能当「立绘」塞进去 —— 那就先把它裁成纯立绘。** 换装的两套原始素材
   **不是同一种东西**：
 
@@ -349,6 +355,8 @@ node test/manifest.mjs        # 只校验 package.json 清单完整性
 | `render-regression` | 渲染层回归：文案缺失不崩、面板不溢出、定位不 NaN |
 | `render-snapshot` | 渲染树快照：结构/文案/尺寸/默认收起态逐项核对 |
 | `dict-parity` | zh/en 词典键必须一一对应（漏一条就会在英文界面露裸 key） |
+| `assets-sync` | `embed-asset --check` / `embed-media --check`：bundle 里的立绘与音效必须和 `assets/` 一致 |
+| `skin-parity` | 换装只保留经典鲸鱼 / 思考鲸鱼：`SKINS` / `SKIN_IMAGES` / `SKIN_LAYOUT` / `SUIT_OPTIONS` / 词典五处一致，下线项不得残留 |
 | `usage-blocks` | 用量区块：厂商归一、聚合口径、占比与空数据兜底 |
 | `vendor-mapping` | 渠道 id → 显示名映射（含 `buddy` 国内版 / `workbuddy` 国际版不串台） |
 
@@ -378,7 +386,11 @@ locale 服务缺失 / 槽位类型变化」四种宿主形态，确认 `apply()`
 默认不展开面板；`aria-label` 是非空字符串且与 `title` 一致。
 换装另外跑两轮：`skin=art2` 时只渲染一张立绘、保留 SVG 气泡、文字块仍在，
 且根节点**不能**出现 `data-suit` 这类按皮肤区分的开关属性（两套皮肤共用一套布局）；
-未设置时默认是 `whale`。最后核对两张立绘源图都是 512×512 方形画布。
+未设置时默认是 `whale`。再补一组脏存档用例：`fullBody` / `chibiSide` / `chibiFront`
+这三种已下线的值，以及任意非法值，都必须回落到 `whale`，不能渲染成空白立绘。
+最后核对两张立绘源图都是 512×512 方形画布。
+换装只保留这两套（经典鲸鱼 / 思考鲸鱼），`skin-parity.mjs` 连同表的完整性与
+下线项残留一起锁住：只要有人把旧形象加回菜单而漏了图、布局或词典，测试就会失败。
 
 `assets-sync.mjs` 跑 `embed-asset.mjs --check` 与 `embed-media.mjs --check`，
 确保 bundle 里的立绘与音效和 `assets/` 下的源文件同步——手工改图后忘了重跑内联脚本时，
@@ -419,7 +431,7 @@ node scripts/embed-media.mjs                # 5) 内联音效
 | `DSniang03.png` | — | 512×512, 190 KB | 由 `crop-art2.py` 裁掉气泡后得到，替换掉原来 134 KB 的整图 |
 | `minecraft-exp-orb.wav` | 59 KB | — | 从未被播放，已移除 |
 | `D1.mp3`（hover） | 3 KB | — | 从未被播放，已移除 |
-| `client.js` | 746 KB | 649 KB | 含两张立绘；裁切后比保留整图时反而更小 |
+| `client.js` | 746 KB | 646 KB | 含两张立绘（经典鲸鱼 + 思考鲸鱼） |
 
 为什么 512px 够用：挂件立绘宽度是气泡的 56%，最大档 `SIZE_PX.lg = 244px`，
 即最大显示 244 × 0.56 ≈ 137 CSS px，3 倍屏需要 411 设备像素。取 512 留有余量，
@@ -449,7 +461,7 @@ lib/client.js                浏览器半侧（气泡 + 面板 + 轮询 + 归一
 assets/                      素材源文件（已全部内联，运行时不再读取）
 scripts/install.mjs          写 profile 的安装器（dry-run 默认、自动备份、幂等、可回滚）
 scripts/run-tests.mjs        跨平台测试执行器（npm test 的背后）
-scripts/embed-asset.mjs      把 assets/whale.png 内联进 lib/client.js（--check 校验指纹）
+scripts/embed-asset.mjs      把 assets/whale.png 与 assets/DSniang03.png 内联进 lib/client.js（--check 校验指纹）
 scripts/embed-media.mjs      把音效/动图内联进 lib/client.js（--check 校验指纹）
 scripts/optimize-png.mjs     立绘重采样与量化（幂等，从 assets/originals/ 读）
 docs/ARCHITECTURE.md         架构与实现细节
@@ -460,6 +472,8 @@ test/register-contract.mjs   挂件注册契约测试
 test/render-regression.mjs   渲染层回归测试（文案缺失 / 布局溢出 / NaN 定位）
 test/render-snapshot.mjs     渲染树快照测试（结构 / 文案 / 尺寸 / 收起态）
 test/dict-parity.mjs         zh/en 词典键一致性
+test/assets-sync.mjs         内联立绘/音效与 assets/ 源文件同步
+test/skin-parity.mjs         换装只保留两套形象（去重、布局、菜单、词典）
 test/usage-blocks.mjs        用量区块：厂商归一与聚合口径
 test/vendor-mapping.mjs      渠道 id → 显示名映射
 ```

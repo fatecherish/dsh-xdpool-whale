@@ -239,8 +239,10 @@ model    === "sn-deepseek-v4-1-flash"
 请求不到（404）。内联是唯一不依赖 Host 半侧开静态路由的方案。
 
 代价是 bundle 体积与解码内存。处理过程记在 README「资源优化」段：
-`whale.png` 从 610×610/256KB 降到 512×512/197KB，`client.js` 从 746KB 降到 587KB
+`whale.png` 从 610×610/256KB 降到 512×512/197KB，`client.js` 从 746KB 降到 646KB
 （`assets/originals/` 保留原图，`scripts/optimize-png.mjs` 幂等可重跑）。
+换装只保留经典鲸鱼与思考鲸鱼两套立绘，下线的三套形象连同其 data URI 区块、
+词典 key 与源图一并移除（`test/skin-parity.mjs` 锁住它们不会悄悄回来）。
 
 `scripts/embed-*.mjs --check` 会校验内联后的指纹与 `assets/` 是否一致，
 改了图忘了重跑 embed 会直接报错。
