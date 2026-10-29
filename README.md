@@ -313,7 +313,9 @@ node scripts/install.mjs --rollback           # 从最近一次备份还原
   裁切规则（`scripts/crop-art2.py`，对 1026×1026 源图逐像素扫描得出，不是手调的）：
   `y < 514` 全是气泡主体，整段清空；`y >= 514` 有 3 个不透明连通块，
   最大那个（约 236k 像素）是人物留下，另外两个（约 5.4k / 2.8k 像素）是虚线小泡泡清掉。
-  脚本支持 `--check`，`assets-sync.mjs` 会跑它。
+  脚本支持 `--check`，但**不在 `npm test` 里**——它需要 Pillow，而 CI 的四个组合
+  没有装。要校验请手动跑 `python scripts/crop-art2.py --check`（前提是本地还留着
+  `assets/originals/DSniang02.png`，该目录被 gitignore，不随仓库分发）。
 
   > 一般规律：**美术素材的规格是一份契约**。当一张图用不对时，先问「它是不是根本不是
   > 这个用途的图」——把素材修正成统一规格，往往比给特例加一套布局分支成本更低、
@@ -427,10 +429,11 @@ node scripts/embed-media.mjs                # 5) 内联音效
 | 资源 | 优化前 | 优化后 | 说明 |
 | --- | --- | --- | --- |
 | `whale.png` | 610×610, 250 KB | 512×512, 193 KB | 重编码省 71 KB |
-| `DSniang02.png` | 1026×1026, 456 KB | — | 只作为裁切源保留在 `assets/originals/`，不再内联 |
+| `DSniang02.png` | 1026×1026, 456 KB | — | 只作为裁切源保留在 `assets/originals/`（gitignore，不入库），不再内联 |
 | `DSniang03.png` | — | 512×512, 190 KB | 由 `crop-art2.py` 裁掉气泡后得到，替换掉原来 134 KB 的整图 |
-| `minecraft-exp-orb.wav` | 59 KB | — | 从未被播放，已移除 |
-| `D1.mp3`（hover） | 3 KB | — | 从未被播放，已移除 |
+| `minecraft-exp-orb.wav` | 59 KB | — | 只预热不播放，源文件已删除 |
+| `D1.mp3`（hover） | 3 KB | — | 只预热不播放，源文件已删除 |
+| `rua.gif`（摸头动图） | 92 KB | — | 按需求不再使用，源文件已删除 |
 | `client.js` | 746 KB | 646 KB | 含两张立绘（经典鲸鱼 + 思考鲸鱼） |
 
 为什么 512px 够用：挂件立绘宽度是气泡的 56%，最大档 `SIZE_PX.lg = 244px`，

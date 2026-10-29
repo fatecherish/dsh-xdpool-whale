@@ -17,9 +17,10 @@ const ASSETS = join(ROOT, 'assets')
 
 /** 要内联的媒体。key 是 client.js 里 ASSETS 表的键名。 */
 // 只保留真正会播放的 3 个音效。
-// hover(D1) 与 exp(minecraft-exp-orb.wav, 59 KB) 原本只在 warmSounds() 里预热、
-// 从来没有被 playSound() 调用，属于纯体积开销，已从表里移除。
-// rua.gif（摸头动图）按用户要求不再使用，也已移除。
+// hover(D1.mp3) 与 exp(minecraft-exp-orb.wav, 59 KB) 原本只在 warmSounds() 里预热、
+// 从来没有被 playSound() 调用，属于纯体积开销，已从表里移除，源文件也已删除。
+// rua.gif（摸头动图）按用户要求不再使用，同样已移除并删除源文件。
+// 因此 assets/ 现在只剩这 3 个音效 + 两张立绘的源图。
 // art2 立绘已改由 scripts/embed-asset.mjs 单独内联成 WHALE_ART2_DATA_URI
 // （与 whale.png 同规格的纯立绘），不再走这张媒体表。
 const MEDIA = [
