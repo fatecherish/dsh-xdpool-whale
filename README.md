@@ -79,7 +79,6 @@ node scripts/install.mjs --apply --install     # 实际安装
 挂件镜像 `dsh-xdpool` 自己注册的两条同源只读路由：
 `GET /plugins/dsh-xdpool/status` 和 `GET /plugins/dsh-xdpool/usage`。
 字段映射（都已在本机真实响应上核对过）：
-
 | 面板位置 | 取值 |
 |---|---|
 | 账号标题 | `accounts[]` 中 `id === activeAccountId` 的 `label` / `domain` |
@@ -100,6 +99,39 @@ node scripts/install.mjs --apply --install     # 实际安装
 | 浮标角标 | 总积分的「万」缩写（≥10000 时显示 `x.xx万`） |
 
 所有字段缺失都会降级为 `0` / 空数组，**xdpool 未安装时挂件显示「读取 xdpool 状态失败」而不是崩掉整页**。
+
+### 「模型厂商余额」（DeepSeek ¥）
+
+面板里另有一个 **模型厂商余额** 区块，它和上面的「厂商积分」是**两套完全不同的口径**：
+
+| | 厂商积分 | 模型厂商余额 |
+|---|---|---|
+| 来源 | xdpool 渠道账户 | DSH 自己的 LLM provider |
+| 认证 | 浏览器登录（有签到/权益包） | 仅 API Key |
+| 取数 | `channel-pack` 的 `credits.balances` RPC | 厂商官方余额接口 |
+| 单位 | 积分（不可跨厂商通用） | 货币（人民币） |
+
+**为什么走宿主而不是浏览器**：余额接口要 API Key，Key 存在 `$DSH_HOME/.credentials.yaml`，
+由宿主的 `credentials` 服务持有。挂件新增一条只读路由
+
+```
+GET /plugins/xdpool-whale/provider-balance?provider=deepseek
+```
+
+由 host 侧 `ctx.credentials.resolve(credentialRef('DEEPSEEK_API_KEY'))` 取到值、
+在服务端请求 `https://api.deepseek.com/user/balance`，**只把余额数字回给页面**。
+client bundle 里既没有 Key、也没有厂商域名——`test/provider-balance.mjs` 逐项断言这条边界。
+
+路由约束：GET only、只信回环 Origin、响应 `Cache-Control: no-store`（余额不缓存）、
+任何异常都回 200 + `error` 让挂件降级，绝不拖垮宿主界面。面板展开时才轮询（5 分钟一次），
+收起后零请求。
+
+**小米 token-plan 为什么不在列表里**：实测它的推理端点
+（`token-plan-cn.xiaomimimo.com/v1`）没有任何余额/账户路由——15 个候选路径全是 404，
+只有 `/v1/models` 与 `/v1/chat/completions` 可用，响应头也不带额度字段。
+官方只提供控制台进度条 `platform.xiaomimimo.com/api/v1/tokenPlan/usage`，
+且要**浏览器 Cookie 会话**（用 API Key 会 401）。要接就得让用户粘贴会过期的 session cookie，
+把会话凭证交给插件——代价明显大于收益，所以不做，界面上显示「该厂商不提供余额查询」。
 
 ### 关于「切换厂商」
 
@@ -359,6 +391,7 @@ node test/manifest.mjs        # 只校验 package.json 清单完整性
 | `dict-parity` | zh/en 词典键必须一一对应（漏一条就会在英文界面露裸 key） |
 | `assets-sync` | `embed-asset --check` / `embed-media --check`：bundle 里的立绘与音效必须和 `assets/` 一致 |
 | `skin-parity` | 换装只保留经典鲸鱼 / 思考鲸鱼：`SKINS` / `SKIN_IMAGES` / `SKIN_LAYOUT` / `SUIT_OPTIONS` / 词典五处一致，下线项不得残留 |
+| `provider-balance` | 模型厂商余额：Key 只在宿主侧、client 不含密钥与厂商域名、路由只读且只信回环、缺配时安静降级 |
 | `usage-blocks` | 用量区块：厂商归一、聚合口径、占比与空数据兜底 |
 | `vendor-mapping` | 渠道 id → 显示名映射（含 `buddy` 国内版 / `workbuddy` 国际版不串台） |
 

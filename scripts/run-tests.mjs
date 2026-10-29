@@ -17,6 +17,7 @@ const ORDER = [
   'dict-parity',
   'assets-sync',
   'skin-parity',
+  'provider-balance',
   'render-regression',
   'render-snapshot',
   'usage-blocks',

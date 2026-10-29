@@ -1,6 +1,6 @@
 {
   "name": "dsh-xdpool-whale",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "小鲸鱼挂件：把 dsh-xdpool 的积分/签到/账号/今日收益渲染成 DSH Web GUI 右下角的可拖动鲸鱼浮标。",
   "keywords": [
     "dsh",
